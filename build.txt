@@ -1,3 +1,4 @@
 displayName = Terraria Japan Project
 author = James
 version = 0.1
+dllReferences = CsvHelper
