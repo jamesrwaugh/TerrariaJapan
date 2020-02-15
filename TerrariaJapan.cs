@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Reflection;
 using System.Globalization;
@@ -9,6 +10,8 @@ using Terraria.ModLoader;
 using Terraria.ModLoader.Core;
 using Terraria.Localization;
 using Newtonsoft.Json;
+using MonoMod.Cil;
+using static Mono.Cecil.Cil.OpCodes;
 using CsvHelper;
 using CsvHelper.Configuration.Attributes;
 
@@ -16,7 +19,10 @@ namespace TerrariaJapan
 {
 	public class TerrariaJapan : Mod
 	{
-		// public static GameCulture Japanse = new GameCulture("ja-JP", 10);
+		private static GameCulture japanese = new GameCulture("ja-JP", 2434);
+		private static TerrariaFontSet japaneseFontSet = null;
+		private static TerrariaFontSet defaultFontSet = null;
+		private static string japaneseLanguageText = null;
 
 		public TerrariaJapan()
 		{
@@ -26,17 +32,61 @@ namespace TerrariaJapan
 		public override void Load()
 		{
 			LoadJapaneseFonts();
-			var results = SynctamToTerrariaLanguageText();
-			LanguageManager.Instance.LoadLanguageFromFileText(results);
+			// AddJapaneseSelectionToLanguageMenu();
+
+			japaneseLanguageText = SynctamToTerrariaLanguageText();
+
+			japaneseFontSet.LoadIntoTerraria();			
+			LanguageManager.Instance.LoadLanguageFromFileText(japaneseLanguageText);
+		}
+
+		private void AddJapaneseSelectionToLanguageMenu()
+		{
+            IL.Terraria.Main.DrawMenu += HookLanguageMenu;
+		}
+
+		private void HookLanguageMenu(ILContext il)
+		{
+			var c = new ILCursor(il);
+			c.TryGotoNext(i => i.MatchLdarg(10));
+			c.Emit(Ldarg_0);
+			c.EmitDelegate<Action>(() =>
+			{
+				// Regular c# code
+				var selectedMenu = (int)typeof(Main).GetProperty("selectedMenu", BindingFlags.NonPublic).GetValue(Main.instance);
+				if(selectedMenu == japanese.LegacyId)
+				{
+					japaneseFontSet.LoadIntoTerraria();
+					LanguageManager.Instance.LoadLanguageFromFileText(japaneseLanguageText);
+				}
+				else
+				{
+					defaultFontSet.LoadIntoTerraria();
+					LanguageManager.Instance.SetLanguage(selectedMenu);
+				}
+			});
+		}
+
+		private void OnLanguageChanged(LanguageManager manager)
+		{
+			if(manager.ActiveCulture != japanese)
+			{
+				defaultFontSet.LoadIntoTerraria();
+			}
 		}
 
 		private void LoadJapaneseFonts()
 		{
-			Main.fontItemStack = GetFont("Fonts/Item_Stack");
-			Main.fontMouseText = GetFont("Fonts/Mouse_Text");
-			Main.fontDeathText = GetFont("Fonts/Death_Text");			
-			Main.fontCombatText[0] = GetFont("Fonts/Combat_Text");
-			Main.fontCombatText[1] = GetFont("Fonts/Combat_Crit");
+			defaultFontSet = TerrariaFontSet.FromCurrentFonts();
+
+			japaneseFontSet = new TerrariaFontSet()
+			{
+				ItemStack = GetFont("Fonts/Item_Stack"),
+				MouseText = GetFont("Fonts/Mouse_Text"),
+				DeathText = GetFont("Fonts/Death_Text"),
+				CombatText = GetFont("Fonts/Combat_Text"),
+				CombatCrit = GetFont("Fonts/Combat_Crit")
+			};
 		}
 
 		private string SynctamToTerrariaLanguageText()
@@ -53,10 +103,7 @@ namespace TerrariaJapan
 					result[row.Group].Add(row.Key, row.BestTranslation);
 				});
 
-				var text = JsonConvert.SerializeObject(result);
-				File.WriteAllText("language_debug.txt", text);
-
-				return text;
+				return JsonConvert.SerializeObject(result);
 			}
 		}
 
