@@ -14,8 +14,6 @@ using CsvHelper.Configuration.Attributes;
 
 namespace TerrariaJapan
 {
-	using TerrariaLocalizaionStructure = Dictionary<string, Dictionary<string, string>>;
-
 	public class TerrariaJapan : Mod
 	{
 		// public static GameCulture Japanse = new GameCulture("ja-JP", 10);
@@ -27,16 +25,26 @@ namespace TerrariaJapan
 
 		public override void Load()
 		{
-			var results = SynctamToTerraria();
-			File.AppendAllText("out3.txt", JsonConvert.SerializeObject(results));
+			LoadJapaneseFonts();
+			var results = SynctamToTerrariaLanguageText();
+			LanguageManager.Instance.LoadLanguageFromFileText(results);
 		}
 
-		private TerrariaLocalizaionStructure SynctamToTerraria()
+		private void LoadJapaneseFonts()
+		{
+			Main.fontItemStack = GetFont("Fonts/Item_Stack");
+			Main.fontMouseText = GetFont("Fonts/Mouse_Text");
+			Main.fontDeathText = GetFont("Fonts/Death_Text");			
+			Main.fontCombatText[0] = GetFont("Fonts/Combat_Text");
+			Main.fontCombatText[1] = GetFont("Fonts/Combat_Crit");
+		}
+
+		private string SynctamToTerrariaLanguageText()
 		{
 			using (var reader = new StreamReader(GetFileStream("Localization/TerrariaSynctam.csv")))
 			using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
 			{
-				var result = new TerrariaLocalizaionStructure();
+				var result = new Dictionary<string, Dictionary<string, string>>();
 				
 				csv.GetRecords<SynctamCsvRow>().ToList().ForEach(row => 
 				{
@@ -45,15 +53,15 @@ namespace TerrariaJapan
 					result[row.Group].Add(row.Key, row.BestTranslation);
 				});
 
-				return result;				
+				var text = JsonConvert.SerializeObject(result);
+				File.WriteAllText("language_debug.txt", text);
+
+				return text;
 			}
 		}
 
 		private class SynctamCsvRow
 		{
-			[Name("[[FileID]]")]
-			public string FileID { get; set; }
-
 			[Name("[[Group]]")]
 			public string Group { get; set; }
 
@@ -64,9 +72,9 @@ namespace TerrariaJapan
 			public string Japanese { get; set; }
 
 			[Name("[[MTrans]]")]
-			public string MTrans { get; set; }	
+			public string MachineTranslation { get; set; }	
 
-			public string BestTranslation { get => !string.IsNullOrWhiteSpace(Japanese) ? Japanese : MTrans; }
+			public string BestTranslation { get => !string.IsNullOrWhiteSpace(Japanese) ? Japanese : MachineTranslation; }
 		}
 	}
 }
