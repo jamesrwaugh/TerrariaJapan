@@ -19,7 +19,7 @@ namespace TerrariaJapan
 {
 	public class TerrariaJapan : Mod
 	{
-		private static GameCulture japanese = new GameCulture("ja-JP", 2434);
+		//private static GameCulture japanese = new GameCulture("ja-JP", 2434);
 		private static TerrariaFontSet japaneseFontSet = null;
 		private static TerrariaFontSet defaultFontSet = null;
 		private static string japaneseLanguageText = null;
@@ -32,12 +32,12 @@ namespace TerrariaJapan
 		public override void Load()
 		{
 			LoadJapaneseFonts();
-			// AddJapaneseSelectionToLanguageMenu();
+			AddJapaneseSelectionToLanguageMenu();
 
 			japaneseLanguageText = SynctamToTerrariaLanguageText();
 
-			japaneseFontSet.LoadIntoTerraria();			
-			LanguageManager.Instance.LoadLanguageFromFileText(japaneseLanguageText);
+			//japaneseFontSet.LoadIntoTerraria();			
+			// LanguageManager.Instance.LoadLanguageFromFileText(japaneseLanguageText);
 		}
 
 		private void AddJapaneseSelectionToLanguageMenu()
@@ -48,13 +48,48 @@ namespace TerrariaJapan
 		private void HookLanguageMenu(ILContext il)
 		{
 			var c = new ILCursor(il);
-			c.TryGotoNext(i => i.MatchLdarg(10));
-			c.Emit(Ldarg_0);
-			c.EmitDelegate<Action>(() =>
+
+			// Jump to the "Language selection" menu, menuMode ID 1212
+			if(!c.TryGotoNext(i => i.MatchLdcI4(1213)))
+				return;
+
+			// See where Polish is inserted. As of writing, this was the last language inserted, so we will
+			// insert after it.
+			if(!c.TryGotoNext(i => i.MatchLdstr("Language.Polish")))
+				return;
+
+			c.Index++; // Move past "ldstr "Language.Polish""
+			c.Index++; // Move past "call string Terraria.Localization.Language::GetTextValue(string)"
+			c.Index++; // Move past "stelem.ref"
+
+			// Here, we will now insert Japanese an a language selection option.
+
+			// (0) Load address of "array9" onto the stack
+			c.Emit(Ldloc, (Int16)26);
+
+			c.EmitDelegate<Action<string[]>>((array9) => {
+				// Regular C# code
+				File.WriteAllText("output.txt", array9.Length.ToString());
+				array9[1] = "Japanese"; // Language.GetTextValue("Language.Japanese");
+				array9[10] = "Japanese"; // Language.GetTextValue("Language.Japanese");
+			});
+
+			// Here, we will divert the call to "SetLanguage" on the selected option to load Japanese
+			// if it was selected, or just load the selected one normally if it was not.
+
+			if(!c.TryGotoNext(i => i.MatchCallvirt(typeof(LanguageManager).GetMethod("SetLanguage", new Type[] { typeof(int) }))))
+				return;
+
+			// Don't call SetLanguage, but instead call our hook below.
+			/*c.Remove();
+
+			// At this point, the selectedMenu is on the stack (we were going to call SetLanguage). Use that here to see if 
+			// we selected Japanese, and load it if so. We can't use SetLanguage for this, because it requires the language
+			// resources to embedded in the Terraria executable, which we can't do, without being tModLoader or Terraria itself.
+			c.EmitDelegate<Action<int>>((selectedMenu) =>
 			{
-				// Regular c# code
-				var selectedMenu = (int)typeof(Main).GetProperty("selectedMenu", BindingFlags.NonPublic).GetValue(Main.instance);
-				if(selectedMenu == japanese.LegacyId)
+				// Regular C# code
+				if(selectedMenu == 10)
 				{
 					japaneseFontSet.LoadIntoTerraria();
 					LanguageManager.Instance.LoadLanguageFromFileText(japaneseLanguageText);
@@ -65,14 +100,8 @@ namespace TerrariaJapan
 					LanguageManager.Instance.SetLanguage(selectedMenu);
 				}
 			});
-		}
 
-		private void OnLanguageChanged(LanguageManager manager)
-		{
-			if(manager.ActiveCulture != japanese)
-			{
-				defaultFontSet.LoadIntoTerraria();
-			}
+			c.Emit(Pop);*/
 		}
 
 		private void LoadJapaneseFonts()
