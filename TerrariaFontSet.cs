@@ -27,14 +27,14 @@ namespace TerrariaJapan
 
         public static TerrariaFontSet FromCurrentFonts()
         {
-            return new TerrariaFontSet()
-            {
-                ItemStack = Main.fontItemStack,
-                MouseText = Main.fontMouseText,
-                DeathText = Main.fontDeathText,	
-                CombatText = Main.fontCombatText[0],
-                CombatCrit = Main.fontCombatText[1]
-            };
+			return new TerrariaFontSet()
+			{
+				ItemStack = Main.instance.OurLoad<DynamicSpriteFont>("Fonts/Item_Stack"),
+				MouseText = Main.instance.OurLoad<DynamicSpriteFont>("Fonts/Mouse_Text"),
+				DeathText = Main.instance.OurLoad<DynamicSpriteFont>("Fonts/Death_Text"),
+				CombatText = Main.instance.OurLoad<DynamicSpriteFont>("Fonts/Combat_Text"),
+				CombatCrit = Main.instance.OurLoad<DynamicSpriteFont>("Fonts/Combat_Crit")
+			};
         }
 
         public void LoadIntoTerraria()

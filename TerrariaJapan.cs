@@ -11,6 +11,7 @@ using Terraria.ModLoader.Core;
 using Terraria.Localization;
 using Newtonsoft.Json;
 using MonoMod.Cil;
+using ReLogic.Graphics;
 using static Mono.Cecil.Cil.OpCodes;
 using CsvHelper;
 using CsvHelper.Configuration.Attributes;
@@ -81,7 +82,7 @@ namespace TerrariaJapan
 				return;
 
 			// Don't call SetLanguage, but instead call our hook below.
-			/*c.Remove();
+			c.Remove();
 
 			// At this point, the selectedMenu is on the stack (we were going to call SetLanguage). Use that here to see if 
 			// we selected Japanese, and load it if so. We can't use SetLanguage for this, because it requires the language
@@ -89,7 +90,7 @@ namespace TerrariaJapan
 			c.EmitDelegate<Action<int>>((selectedMenu) =>
 			{
 				// Regular C# code
-				if(selectedMenu == 10)
+				if(selectedMenu == 9)
 				{
 					japaneseFontSet.LoadIntoTerraria();
 					LanguageManager.Instance.LoadLanguageFromFileText(japaneseLanguageText);
@@ -101,7 +102,7 @@ namespace TerrariaJapan
 				}
 			});
 
-			c.Emit(Pop);*/
+			c.Emit(Pop);
 		}
 
 		private void LoadJapaneseFonts()
