@@ -11,7 +11,6 @@ using Terraria.ModLoader.Core;
 using Terraria.Localization;
 using Newtonsoft.Json;
 using MonoMod.Cil;
-using ReLogic.Graphics;
 using static Mono.Cecil.Cil.OpCodes;
 using CsvHelper;
 using CsvHelper.Configuration.Attributes;
@@ -20,7 +19,6 @@ namespace TerrariaJapan
 {
 	public class TerrariaJapan : Mod
 	{
-		//private static GameCulture japanese = new GameCulture("ja-JP", 2434);
 		private static TerrariaFontSet japaneseFontSet = null;
 		private static TerrariaFontSet defaultFontSet = null;
 		private static string japaneseLanguageText = null;
@@ -32,65 +30,96 @@ namespace TerrariaJapan
 
 		public override void Load()
 		{
-			LoadJapaneseFonts();
-			AddJapaneseSelectionToLanguageMenu();
-
 			japaneseLanguageText = SynctamToTerrariaLanguageText();
+			defaultFontSet = TerrariaFontSet.FromCurrentFonts();
+			japaneseFontSet = new TerrariaFontSet()
+			{
+				ItemStack = GetFont("Fonts/Item_Stack"),
+				MouseText = GetFont("Fonts/Mouse_Text"),
+				DeathText = GetFont("Fonts/Death_Text"),
+				CombatText = GetFont("Fonts/Combat_Text"),
+				CombatCrit = GetFont("Fonts/Combat_Crit")
+			};
 
-			//japaneseFontSet.LoadIntoTerraria();			
-			// LanguageManager.Instance.LoadLanguageFromFileText(japaneseLanguageText);
+            IL.Terraria.Main.DrawMenu += AddJapaneseToLanguageSelectionHook;		
 		}
 
-		private void AddJapaneseSelectionToLanguageMenu()
-		{
-            IL.Terraria.Main.DrawMenu += HookLanguageMenu;
-		}
-
-		private void HookLanguageMenu(ILContext il)
+		private void AddJapaneseToLanguageSelectionHook(ILContext il)
 		{
 			var c = new ILCursor(il);
 
-			// Jump to the "Language selection" menu, menuMode ID 1212
+			// 
+			// First, begin at the "language selection screen" in DrawMenu.
+			// That is Menu Mode ID 1213 (menuMode == 1213)
+			// 
 			if(!c.TryGotoNext(i => i.MatchLdcI4(1213)))
 				return;
 
-			// See where Polish is inserted. As of writing, this was the last language inserted, so we will
-			// insert after it.
-			if(!c.TryGotoNext(i => i.MatchLdstr("Language.Polish")))
+			//
+			// Insert Japanese as a menu option on this screen. This first addition will just update the
+			// selections; a number of future modifications to show this value, make it selectable,
+			// and so on are below.
+			//
+			// We do tis by switching the items array to make index 10 "Japanese", and 11 "Back"
+			// It's convient here to use a deligate to make multiple updates.
+			// 
+			if(!c.TryGotoNext(i => i.MatchCallvirt(typeof(LocalizedText).GetMethod("get_Value"))))
 				return;
-
-			c.Index++; // Move past "ldstr "Language.Polish""
-			c.Index++; // Move past "call string Terraria.Localization.Language::GetTextValue(string)"
+			if(!c.TryGotoNext(i => i.MatchCallvirt(typeof(LocalizedText).GetMethod("get_Value"))))
+				return;				
+			c.Index++; // Move past "callvirt instance string Terraria.Localization.LocalizedText::get_Value()"
 			c.Index++; // Move past "stelem.ref"
-
-			// Here, we will now insert Japanese an a language selection option.
-
 			// (0) Load address of "array9" onto the stack
 			c.Emit(Ldloc, (Int16)26);
-
 			c.EmitDelegate<Action<string[]>>((array9) => {
-				// Regular C# code
-				File.WriteAllText("output.txt", array9.Length.ToString());
-				array9[1] = "Japanese"; // Language.GetTextValue("Language.Japanese");
-				array9[10] = "Japanese"; // Language.GetTextValue("Language.Japanese");
+				// See if the current language has an entry for Japanese. If not, fall back
+				// to English.
+				string japaneseKey = "Language.Japanese";
+				string japaneseValue = Language.GetTextValue(japaneseKey);
+				if(japaneseValue == japaneseKey)
+					japaneseValue = "日本語 (Japanese)";
+
+				array9[10] = japaneseValue;
+				array9[11] = Lang.menu[5].Value;
 			});
 
-			// Here, we will divert the call to "SetLanguage" on the selected option to load Japanese
-			// if it was selected, or just load the selected one normally if it was not.
+			//
+			// Even though we updated the menu items array, we need to set another local variable (decompiled as "num5") 
+			// to the actual amount of  items in the array we should display. Set that to 12 instead of 11, for the new item.
+			// we do that by setting num5 = 12 instead of 11
+			// 
+			if(!c.TryGotoNext(i => i.MatchStloc(8)))
+				return;
+			c.Index--; // Move to "ldc.i4.s 11"
+			c.Remove();
+			c.Emit(Ldc_I4, (Int16)12);			
 
+			//
+			// Update the back button be menu index 11 instead of 10. This accounts for the new menu item we inserted
+			// above. We do that by setting turning (selectedMenu == 10) into (selectedMenu == 11) for the condition
+			// on when to return.
+			// 
+			//if(!c.TryGotoNext(i => i.MatchLdfld(typeof(Main).GetField("selectedMenu", BindingFlags.Instance | BindingFlags.NonPublic))))	
+			//	return;
+			if(!c.TryGotoNext(i => i.MatchLdcI4(10)))
+				return;
+			c.Remove();
+			c.Emit(Ldc_I4, (Int16)11);
+		
+			// 
+			// Update the call to "SetLanguage" when a language is selected to do special handling for Japanese.
+			// We can't use SetLanguage for this, because it requires the language resources to embedded in the Terraria executable, 
+			// which we can't do, without being tModLoader or Terraria itself. We also need to load a special font, and restore
+			// it when we move away from Japanese.
+			//
 			if(!c.TryGotoNext(i => i.MatchCallvirt(typeof(LanguageManager).GetMethod("SetLanguage", new Type[] { typeof(int) }))))
 				return;
-
-			// Don't call SetLanguage, but instead call our hook below.
 			c.Remove();
-
-			// At this point, the selectedMenu is on the stack (we were going to call SetLanguage). Use that here to see if 
-			// we selected Japanese, and load it if so. We can't use SetLanguage for this, because it requires the language
-			// resources to embedded in the Terraria executable, which we can't do, without being tModLoader or Terraria itself.
+			// At this point, the selectedMenu is on the stack (as we were going to call SetLanguage). 
+			// Use that here to see if we selected Japanese, and load our custom way if so. 
 			c.EmitDelegate<Action<int>>((selectedMenu) =>
 			{
-				// Regular C# code
-				if(selectedMenu == 9)
+				if(selectedMenu == 10)
 				{
 					japaneseFontSet.LoadIntoTerraria();
 					LanguageManager.Instance.LoadLanguageFromFileText(japaneseLanguageText);
@@ -101,22 +130,33 @@ namespace TerrariaJapan
 					LanguageManager.Instance.SetLanguage(selectedMenu);
 				}
 			});
-
 			c.Emit(Pop);
-		}
 
-		private void LoadJapaneseFonts()
-		{
-			defaultFontSet = TerrariaFontSet.FromCurrentFonts();
+			//
+			// At this point, Japanese is a menu selection, we've updated the variables to make it appear and be
+			// selectable, but we need to adjust the spacing of the menu items so it's with the rest of the language
+			// items.
+			// We do this by modifying "array4": Set the index to which the extra spacing is applied to to be
+			// 11 instead of 10.
+			//
+			if(!c.TryGotoNext(i => i.MatchLdloc(19)))
+				return;
+			if(!c.TryGotoNext(i => i.MatchLdloc(19)))
+				return;
+			c.Index++; // Move past "ldloc.s 19"
+			c.Remove();
+			c.Emit(Ldc_I4, 11);
 
-			japaneseFontSet = new TerrariaFontSet()
-			{
-				ItemStack = GetFont("Fonts/Item_Stack"),
-				MouseText = GetFont("Fonts/Mouse_Text"),
-				DeathText = GetFont("Fonts/Death_Text"),
-				CombatText = GetFont("Fonts/Combat_Text"),
-				CombatCrit = GetFont("Fonts/Combat_Crit")
-			};
+			//
+			// Finally, the "Back" button is larger than the others, but it now applies to the Japanese selection. 
+			// Like the above mehtod, set this to now apply to menu item 11 isntead of 10. 
+			// We do this by modifying array7[10] = 0.95f into -> array7[11] = 0.95f
+			// 
+			if(!c.TryGotoNext(i => i.MatchLdcR4(0.95f)))
+				return;			
+			c.Index--; // Move to "ldc.i4.s 10"
+			c.Remove();
+			c.Emit(Ldc_I4, 11);			
 		}
 
 		private string SynctamToTerrariaLanguageText()
