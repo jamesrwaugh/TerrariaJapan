@@ -23,11 +23,6 @@ namespace TerrariaJapan
         private static TerrariaFontSet defaultFontSet = null;
         private static string japaneseLanguageText = null;
 
-        public TerrariaJapan()
-        {
-
-        }
-
         public override void Load()
         {
             japaneseLanguageText = SynctamToTerrariaLanguageText();
@@ -49,7 +44,7 @@ namespace TerrariaJapan
             var c = new ILCursor(il);
 
             // 
-            // First, begin at the "language selection screen" in DrawMenu.
+            // First, begin at the "language selection" screen in DrawMenu.
             // That is Menu Mode ID 1213 (menuMode == 1213)
             // 
             if(!c.TryGotoNext(i => i.MatchLdcI4(1213)))
@@ -57,11 +52,11 @@ namespace TerrariaJapan
 
             //
             // Insert Japanese as a menu option on this screen. This first addition will just update the
-            // selections; a number of future modifications to show this value, make it selectable,
+            // selections; a number of modifications to show this value, make it selectable,
             // and so on are below.
             //
-            // We do tis by switching the items array to make index 10 "Japanese", and 11 "Back"
-            // It's convient here to use a deligate to make multiple updates.
+            // We do this by switching the items array to make index 10 "Japanese", and 11 "Back"
+            // It's convient here to use a delegate to make multiple updates.
             // 
             if(!c.TryGotoNext(i => i.MatchCallvirt(typeof(LocalizedText).GetMethod("get_Value"))))
                 return;
@@ -85,7 +80,7 @@ namespace TerrariaJapan
 
             //
             // Even though we updated the menu items array, we need to set another local variable (decompiled as "num5") 
-            // to the actual amount of  items in the array we should display. Set that to 12 instead of 11, for the new item.
+            // to the actual amount of items in the array we should display. Set that to 12 instead of 11, for the new item.
             // we do that by setting num5 = 12 instead of 11
             // 
             if(!c.TryGotoNext(i => i.MatchStloc(8)))
@@ -95,8 +90,8 @@ namespace TerrariaJapan
             c.Emit(Ldc_I4, (Int16)12);			
 
             //
-            // Update the back button be menu index 11 instead of 10. This accounts for the new menu item we inserted
-            // above. We do that by setting turning (selectedMenu == 10) into (selectedMenu == 11) for the condition
+            // Update the back button be menu index 11 instead of 10. This accounts for the Japanese option. 
+            // We do that by setting (selectedMenu == 10) into (selectedMenu == 11) for the condition
             // on when to return.
             // 
             //if(!c.TryGotoNext(i => i.MatchLdfld(typeof(Main).GetField("selectedMenu", BindingFlags.Instance | BindingFlags.NonPublic))))	
