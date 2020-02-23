@@ -1,4 +1,4 @@
 displayName = Terraria Japan Project
-author = James
-version = 0.1
+author = James Waugh
+version = 0.5
 dllReferences = CsvHelper
