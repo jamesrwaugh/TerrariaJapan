@@ -187,7 +187,7 @@ namespace TerrariaJapan
             [Name("[[MTrans]]")]
             public string MachineTranslation { get; set; }	
 
-            public string BestTranslation { get => !string.IsNullOrWhiteSpace(Japanese) ? Japanese : MachineTranslation; }
+            public string BestTranslation => !string.IsNullOrWhiteSpace(Japanese) ? Japanese : MachineTranslation;
         }
     }
 }
