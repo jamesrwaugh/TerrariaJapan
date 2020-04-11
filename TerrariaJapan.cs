@@ -35,8 +35,8 @@ namespace TerrariaJapan
                 CombatText = GetFont("Fonts/Combat_Text"),
                 CombatCrit = GetFont("Fonts/Combat_Crit")
             };
-            
-            IL.Terraria.Main.DrawMenu += AddJapaneseToLanguageSelectionHook;		
+
+            IL.Terraria.Main.DrawMenu += AddJapaneseToLanguageSelectionHook;
         }
 
         private void AddJapaneseToLanguageSelectionHook(ILContext il)
@@ -47,7 +47,7 @@ namespace TerrariaJapan
             // First, begin at the "language selection" screen in DrawMenu.
             // That is Menu Mode ID 1213 (menuMode == 1213)
             // 
-            if(!c.TryGotoNext(i => i.MatchLdcI4(1213)))
+            if (!c.TryGotoNext(i => i.MatchLdcI4(1213)))
                 return;
 
             //
@@ -58,20 +58,21 @@ namespace TerrariaJapan
             // We do this by switching the items array to make index 10 "Japanese", and 11 "Back"
             // It's convient here to use a delegate to make multiple updates.
             // 
-            if(!c.TryGotoNext(i => i.MatchCallvirt(typeof(LocalizedText).GetMethod("get_Value"))))
+            if (!c.TryGotoNext(i => i.MatchCallvirt(typeof(LocalizedText).GetMethod("get_Value"))))
                 return;
-            if(!c.TryGotoNext(i => i.MatchCallvirt(typeof(LocalizedText).GetMethod("get_Value"))))
-                return;				
+            if (!c.TryGotoNext(i => i.MatchCallvirt(typeof(LocalizedText).GetMethod("get_Value"))))
+                return;
             c.Index++; // Move past "callvirt instance string Terraria.Localization.LocalizedText::get_Value()"
             c.Index++; // Move past "stelem.ref"
             // (0) Load address of "array9" onto the stack
             c.Emit(Ldloc, (Int16)26);
-            c.EmitDelegate<Action<string[]>>((array9) => {
+            c.EmitDelegate<Action<string[]>>((array9) =>
+            {
                 // See if the current language has an entry for Japanese. 
                 // If not, fall back to English.
                 string japaneseKey = "Language.Japanese";
                 string japaneseValue = Language.GetTextValue(japaneseKey);
-                if(japaneseValue == japaneseKey)
+                if (japaneseValue == japaneseKey)
                     japaneseValue = "日本語 (Japanese)";
 
                 array9[10] = japaneseValue;
@@ -83,11 +84,11 @@ namespace TerrariaJapan
             // to the actual amount of items in the array we should display. Set that to 12 instead of 11, for the new item.
             // we do that by setting num5 = 12 instead of 11
             // 
-            if(!c.TryGotoNext(i => i.MatchStloc(8)))
+            if (!c.TryGotoNext(i => i.MatchStloc(8)))
                 return;
             c.Index--; // Move to "ldc.i4.s 11"
             c.Remove();
-            c.Emit(Ldc_I4, (Int16)12);			
+            c.Emit(Ldc_I4, (Int16)12);
 
             //
             // Update the back button be menu index 11 instead of 10. This accounts for the Japanese option. 
@@ -96,18 +97,18 @@ namespace TerrariaJapan
             // 
             //if(!c.TryGotoNext(i => i.MatchLdfld(typeof(Main).GetField("selectedMenu", BindingFlags.Instance | BindingFlags.NonPublic))))	
             //	return;
-            if(!c.TryGotoNext(i => i.MatchLdcI4(10)))
+            if (!c.TryGotoNext(i => i.MatchLdcI4(10)))
                 return;
             c.Remove();
             c.Emit(Ldc_I4, (Int16)11);
-        
+
             // 
             // Update the call to "SetLanguage" when a language is selected to do special handling for Japanese.
             // We can't use SetLanguage for this, because it requires the language resources to embedded in the Terraria executable, 
             // which we can't do, without being tModLoader or Terraria itself. We also need to load a special font, and restore
             // it when we move away from Japanese.
             //
-            if(!c.TryGotoNext(i => i.MatchCallvirt(typeof(LanguageManager).GetMethod("SetLanguage", new Type[] { typeof(int) }))))
+            if (!c.TryGotoNext(i => i.MatchCallvirt(typeof(LanguageManager).GetMethod("SetLanguage", new Type[] { typeof(int) }))))
                 return;
             c.Remove(); // Remove the call to SetLanguage, use our cooler callback below.
             // At this point, the selectedMenu is on the stack (as we were going to call SetLanguage). 
@@ -115,7 +116,7 @@ namespace TerrariaJapan
             // just call SetLanguage.
             c.EmitDelegate<Action<int>>((selectedMenu) =>
             {
-                if(selectedMenu == 10)
+                if (selectedMenu == 10)
                 {
                     japaneseFontSet.LoadIntoTerraria();
                     LanguageManager.Instance.LoadLanguageFromFileText(japaneseLanguageText);
@@ -135,9 +136,9 @@ namespace TerrariaJapan
             // We do this by modifying "array4": Set the index to which the extra spacing is applied to to be
             // 11 instead of 10.
             //
-            if(!c.TryGotoNext(i => i.MatchLdloc(19)))
+            if (!c.TryGotoNext(i => i.MatchLdloc(19)))
                 return;
-            if(!c.TryGotoNext(i => i.MatchLdloc(19)))
+            if (!c.TryGotoNext(i => i.MatchLdloc(19)))
                 return;
             c.Index++; // Move past "ldloc.s 19"
             c.Remove();
@@ -148,11 +149,11 @@ namespace TerrariaJapan
             // Like the above mehtod, set this to now apply to menu item 11 isntead of 10. 
             // We do this by modifying array7[10] = 0.95f into -> array7[11] = 0.95f
             // 
-            if(!c.TryGotoNext(i => i.MatchLdcR4(0.95f)))
-                return;			
+            if (!c.TryGotoNext(i => i.MatchLdcR4(0.95f)))
+                return;
             c.Index--; // Move to "ldc.i4.s 10"
             c.Remove();
-            c.Emit(Ldc_I4, 11);			
+            c.Emit(Ldc_I4, 11);
         }
 
         private string SynctamToTerrariaLanguageText()
@@ -161,10 +162,10 @@ namespace TerrariaJapan
             using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
             {
                 var result = new Dictionary<string, Dictionary<string, string>>();
-                
-                csv.GetRecords<SynctamCsvRow>().ToList().ForEach(row => 
+
+                csv.GetRecords<SynctamCsvRow>().ToList().ForEach(row =>
                 {
-                    if(!result.ContainsKey(row.Group))
+                    if (!result.ContainsKey(row.Group))
                         result[row.Group] = new Dictionary<string, string>();
                     result[row.Group].Add(row.Key, row.BestTranslation);
                 });
@@ -185,7 +186,7 @@ namespace TerrariaJapan
             public string Japanese { get; set; }
 
             [Name("[[MTrans]]")]
-            public string MachineTranslation { get; set; }	
+            public string MachineTranslation { get; set; }
 
             public string BestTranslation => !string.IsNullOrWhiteSpace(Japanese) ? Japanese : MachineTranslation;
         }

@@ -27,7 +27,7 @@ namespace TerrariaJapan
         {
             Main.fontItemStack = ItemStack;
             Main.fontMouseText = MouseText;
-            Main.fontDeathText = DeathText;			
+            Main.fontDeathText = DeathText;
             Main.fontCombatText[0] = CombatText;
             Main.fontCombatText[1] = CombatCrit;
         }
